@@ -6,6 +6,11 @@ import (
 	"time"
 )
 
+// Validator is implemented by any domain payload that requires custom validation.
+type Validator interface {
+	Validate() error
+}
+
 // EventType represents a distinct blockchain operation.
 type EventType string
 
@@ -32,7 +37,6 @@ func (e EventType) IsValid() bool {
 	return false
 }
 
-// Event is the canonical schema consumed from Redis Streams.
 type Event struct {
 	ID        string          `json:"id"`
 	Type      EventType       `json:"type"`

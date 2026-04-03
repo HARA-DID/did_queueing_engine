@@ -33,6 +33,13 @@ type CreateDIDPayload struct {
 	MultipleRPCCalls bool   `json:"multiple_rpc_calls,omitempty"`
 }
 
+func (p CreateDIDPayload) Validate() error {
+	if p.DID == "" {
+		return &ErrValidation{Field: "did", Message: "required"}
+	}
+	return nil
+}
+
 type AddKeyPayload struct {
 	TargetAddress    string   `json:"target_address"`
 	DIDIndex         *big.Int `json:"did_index"`
@@ -41,6 +48,13 @@ type AddKeyPayload struct {
 	Purpose          uint8    `json:"purpose"`
 	KeyIdentifier    string   `json:"key_identifier,omitempty"`
 	MultipleRPCCalls bool     `json:"multiple_rpc_calls,omitempty"`
+}
+
+func (p AddKeyPayload) Validate() error {
+	if p.PublicKey == "" {
+		return &ErrValidation{Field: "public_key", Message: "required"}
+	}
+	return nil
 }
 
 type AddClaimPayload struct {
@@ -55,6 +69,13 @@ type AddClaimPayload struct {
 	MultipleRPCCalls bool     `json:"multiple_rpc_calls,omitempty"`
 }
 
+func (p AddClaimPayload) Validate() error {
+	if p.IssuerAddress == "" {
+		return &ErrValidation{Field: "issuer_address", Message: "required"}
+	}
+	return nil
+}
+
 type StoreDataPayload struct {
 	TargetAddress    string   `json:"target_address"`
 	DIDIndex         *big.Int `json:"did_index"`
@@ -62,6 +83,13 @@ type StoreDataPayload struct {
 	Data             string   `json:"data"`
 	KeyIdentifier    string   `json:"key_identifier,omitempty"`
 	MultipleRPCCalls bool     `json:"multiple_rpc_calls,omitempty"`
+}
+
+func (p StoreDataPayload) Validate() error {
+	if p.PropertyKey == "" {
+		return &ErrValidation{Field: "property_key", Message: "required"}
+	}
+	return nil
 }
 
 type UpdateDIDPayload struct {

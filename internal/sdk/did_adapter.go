@@ -31,17 +31,17 @@ func NewDIDAdapter(p *Provider, cfg config.BlockchainConfig) (*DIDAdapter, error
 	}, nil
 }
 
-func (a *DIDAdapter) EncodeCreateDID(p domain.CreateDIDPayload) ([]byte, error) {
+func (a *DIDAdapter) CreateDID(ctx context.Context, p domain.CreateDIDPayload) (*domain.BlockchainResult, error) {
 	keyID, err := resolveKeyIdentifier(p.KeyIdentifier)
 	if err != nil {
 		return nil, err
 	}
 
-	argBuilder := a.provider.Network.ArgBuilder().
-		Type("string").Value(p.DID)
-	data := harautils.EncodeArgs(argBuilder)
-
-	return a.encodeDID(didfactory.TypeCreateDID, data, keyID)
+	txHashes, err := a.factory.CreateDID(ctx, a.provider.Wallet, didfactory.CreateDIDParam{DID: p.DID}, keyID, p.MultipleRPCCalls)
+	if err != nil {
+		return nil, fmt.Errorf("factory.CreateDID: %w", err)
+	}
+	return &domain.BlockchainResult{TxHashes: txHashes}, nil
 }
 
 func (a *DIDAdapter) EncodeAddKey(p domain.AddKeyPayload) ([]byte, error) {

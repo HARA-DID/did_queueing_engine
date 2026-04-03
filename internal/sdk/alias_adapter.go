@@ -39,15 +39,19 @@ func NewAliasAdapter(p *Provider, cfg config.BlockchainConfig) (*AliasAdapter, e
 	}, nil
 }
 
-// ── Encode Methods ───────────────────────────────────────────────
-
-func (a *AliasAdapter) EncodeRegisterTLD(p domain.RegisterTLDPayload) ([]byte, error) {
+func (a *AliasAdapter) RegisterTLD(ctx context.Context, p domain.RegisterTLDPayload) (*domain.BlockchainResult, error) {
 	params := aliasfact.RegisterTLDParams{
 		TLD:   p.TLD,
 		Owner: p.Owner,
 	}
-	return a.encode("registerTLD", params)
+	txHashes, err := a.factory.RegisterTLD(ctx, a.provider.Wallet, params, p.MultipleRPCCalls)
+	if err != nil {
+		return nil, fmt.Errorf("factory.RegisterTLD: %w", err)
+	}
+	return &domain.BlockchainResult{TxHashes: txHashes}, nil
 }
+
+// ── Encode Methods ───────────────────────────────────────────────
 
 func (a *AliasAdapter) EncodeRegisterDomain(p domain.RegisterDomainPayload) ([]byte, error) {
 	params := aliasfact.RegisterDomainParams{

@@ -26,15 +26,7 @@ func NewCompositeAdapter(did *DIDAdapter, aa *AAAdapter, vc *VCAdapter, alias *A
 }
 
 func (c *CompositeAdapter) CreateDID(ctx context.Context, p domain.CreateDIDPayload) (*domain.BlockchainResult, error) {
-	data, err := c.did.EncodeCreateDID(p)
-	if err != nil {
-		return nil, err
-	}
-	return c.aa.HandleOps(ctx, domain.HandleOpsPayload{
-		Target:           p.TargetAddress,
-		Data:             data,
-		MultipleRPCCalls: p.MultipleRPCCalls,
-	})
+	return c.did.CreateDID(ctx, p)
 }
 
 func (c *CompositeAdapter) AddKey(ctx context.Context, p domain.AddKeyPayload) (*domain.BlockchainResult, error) {
@@ -358,15 +350,7 @@ func (c *CompositeAdapter) SetDidOrgStorage(ctx context.Context, p domain.SetAdd
 }
 
 func (c *CompositeAdapter) RegisterTLD(ctx context.Context, p domain.RegisterTLDPayload) (*domain.BlockchainResult, error) {
-	data, err := c.alias.EncodeRegisterTLD(p)
-	if err != nil {
-		return nil, err
-	}
-	return c.aa.HandleOps(ctx, domain.HandleOpsPayload{
-		Target:           p.TargetAddress,
-		Data:             data,
-		MultipleRPCCalls: p.MultipleRPCCalls,
-	})
+	return c.alias.RegisterTLD(ctx, p)
 }
 
 func (c *CompositeAdapter) RegisterDomain(ctx context.Context, p domain.RegisterDomainPayload) (*domain.BlockchainResult, error) {

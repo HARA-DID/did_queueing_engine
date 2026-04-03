@@ -99,7 +99,6 @@ func (p *Pool) Run(ctx context.Context) {
 	}
 }
 
-// readMessages calls XREADGROUP with a blocking timeout equal to PollInterval.
 func (p *Pool) readMessages(ctx context.Context) ([]redis.XMessage, error) {
 	streams, err := p.client.XReadGroup(ctx, &redis.XReadGroupArgs{
 		Group:    p.redisCfg.GroupName,
@@ -123,7 +122,6 @@ func (p *Pool) readMessages(ctx context.Context) ([]redis.XMessage, error) {
 	return streams[0].Messages, nil
 }
 
-// processMessage runs the handler for one message and ACKs or DLQs accordingly.
 func (p *Pool) processMessage(ctx context.Context, msg redis.XMessage) {
 	log := p.log.WithField("msg_id", msg.ID)
 
