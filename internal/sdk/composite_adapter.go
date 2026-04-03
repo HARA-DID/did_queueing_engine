@@ -7,10 +7,8 @@ import (
 	"github.com/myorg/worker-service/internal/service"
 )
 
-// Compile-time interface check.
 var _ service.BlockchainService = (*CompositeAdapter)(nil)
 
-// CompositeAdapter delegates calls to specialized adapters (DID, AA, etc.).
 type CompositeAdapter struct {
 	did   *DIDAdapter
 	aa    *AAAdapter
@@ -18,7 +16,6 @@ type CompositeAdapter struct {
 	alias *AliasAdapter
 }
 
-// NewCompositeAdapter creates a new composite adapter.
 func NewCompositeAdapter(did *DIDAdapter, aa *AAAdapter, vc *VCAdapter, alias *AliasAdapter) *CompositeAdapter {
 	return &CompositeAdapter{
 		did:   did,
@@ -27,8 +24,6 @@ func NewCompositeAdapter(did *DIDAdapter, aa *AAAdapter, vc *VCAdapter, alias *A
 		alias: alias,
 	}
 }
-
-// ── DID Operations ──────────────────────────────────────────────
 
 func (c *CompositeAdapter) CreateDID(ctx context.Context, p domain.CreateDIDPayload) (*domain.BlockchainResult, error) {
 	data, err := c.did.EncodeCreateDID(p)
@@ -78,7 +73,185 @@ func (c *CompositeAdapter) StoreData(ctx context.Context, p domain.StoreDataPayl
 	})
 }
 
-// ── Account Abstraction Operations ──────────────────────────────
+func (c *CompositeAdapter) UpdateDID(ctx context.Context, p domain.UpdateDIDPayload) (*domain.BlockchainResult, error) {
+	data, err := c.did.EncodeUpdateDID(p)
+	if err != nil {
+		return nil, err
+	}
+	return c.aa.HandleOps(ctx, domain.HandleOpsPayload{
+		Target:           p.TargetAddress,
+		Data:             data,
+		MultipleRPCCalls: p.MultipleRPCCalls,
+	})
+}
+
+func (c *CompositeAdapter) DeactivateDID(ctx context.Context, p domain.DIDLifecyclePayload) (*domain.BlockchainResult, error) {
+	data, err := c.did.EncodeDeactivateDID(p)
+	if err != nil {
+		return nil, err
+	}
+	return c.aa.HandleOps(ctx, domain.HandleOpsPayload{
+		Target:           p.TargetAddress,
+		Data:             data,
+		MultipleRPCCalls: p.MultipleRPCCalls,
+	})
+}
+
+func (c *CompositeAdapter) ReactivateDID(ctx context.Context, p domain.DIDLifecyclePayload) (*domain.BlockchainResult, error) {
+	data, err := c.did.EncodeReactivateDID(p)
+	if err != nil {
+		return nil, err
+	}
+	return c.aa.HandleOps(ctx, domain.HandleOpsPayload{
+		Target:           p.TargetAddress,
+		Data:             data,
+		MultipleRPCCalls: p.MultipleRPCCalls,
+	})
+}
+
+func (c *CompositeAdapter) TransferDIDOwner(ctx context.Context, p domain.TransferDIDOwnerPayload) (*domain.BlockchainResult, error) {
+	data, err := c.did.EncodeTransferDIDOwner(p)
+	if err != nil {
+		return nil, err
+	}
+	return c.aa.HandleOps(ctx, domain.HandleOpsPayload{
+		Target:           p.TargetAddress,
+		Data:             data,
+		MultipleRPCCalls: p.MultipleRPCCalls,
+	})
+}
+
+func (c *CompositeAdapter) DeleteData(ctx context.Context, p domain.DeleteDataPayload) (*domain.BlockchainResult, error) {
+	data, err := c.did.EncodeDeleteData(p)
+	if err != nil {
+		return nil, err
+	}
+	return c.aa.HandleOps(ctx, domain.HandleOpsPayload{
+		Target:           p.TargetAddress,
+		Data:             data,
+		MultipleRPCCalls: p.MultipleRPCCalls,
+	})
+}
+
+func (c *CompositeAdapter) RemoveKey(ctx context.Context, p domain.RemoveKeyPayload) (*domain.BlockchainResult, error) {
+	data, err := c.did.EncodeRemoveKey(p)
+	if err != nil {
+		return nil, err
+	}
+	return c.aa.HandleOps(ctx, domain.HandleOpsPayload{
+		Target:           p.TargetAddress,
+		Data:             data,
+		MultipleRPCCalls: p.MultipleRPCCalls,
+	})
+}
+
+func (c *CompositeAdapter) RemoveClaim(ctx context.Context, p domain.RemoveClaimPayload) (*domain.BlockchainResult, error) {
+	data, err := c.did.EncodeRemoveClaim(p)
+	if err != nil {
+		return nil, err
+	}
+	return c.aa.HandleOps(ctx, domain.HandleOpsPayload{
+		Target:           p.TargetAddress,
+		Data:             data,
+		MultipleRPCCalls: p.MultipleRPCCalls,
+	})
+}
+
+func (c *CompositeAdapter) GeneralExecute(ctx context.Context, p domain.GeneralExecutePayload) (*domain.BlockchainResult, error) {
+	data, err := c.did.EncodeGeneralExecute(p)
+	if err != nil {
+		return nil, err
+	}
+	return c.aa.HandleOps(ctx, domain.HandleOpsPayload{
+		Target:           p.TargetAddress,
+		Data:             data,
+		MultipleRPCCalls: p.MultipleRPCCalls,
+	})
+}
+
+func (c *CompositeAdapter) CreateOrg(ctx context.Context, p domain.CreateOrgPayload) (*domain.BlockchainResult, error) {
+	data, err := c.did.EncodeCreateOrg(p)
+	if err != nil {
+		return nil, err
+	}
+	return c.aa.HandleOps(ctx, domain.HandleOpsPayload{
+		Target:           p.TargetAddress,
+		Data:             data,
+		MultipleRPCCalls: p.MultipleRPCCalls,
+	})
+}
+
+func (c *CompositeAdapter) DeactivateOrg(ctx context.Context, p domain.OrgLifecyclePayload) (*domain.BlockchainResult, error) {
+	data, err := c.did.EncodeDeactivateOrg(p)
+	if err != nil {
+		return nil, err
+	}
+	return c.aa.HandleOps(ctx, domain.HandleOpsPayload{
+		Target:           p.TargetAddress,
+		Data:             data,
+		MultipleRPCCalls: p.MultipleRPCCalls,
+	})
+}
+
+func (c *CompositeAdapter) ReactivateOrg(ctx context.Context, p domain.OrgLifecyclePayload) (*domain.BlockchainResult, error) {
+	data, err := c.did.EncodeReactivateOrg(p)
+	if err != nil {
+		return nil, err
+	}
+	return c.aa.HandleOps(ctx, domain.HandleOpsPayload{
+		Target:           p.TargetAddress,
+		Data:             data,
+		MultipleRPCCalls: p.MultipleRPCCalls,
+	})
+}
+
+func (c *CompositeAdapter) TransferOrgOwner(ctx context.Context, p domain.OrgTransferPayload) (*domain.BlockchainResult, error) {
+	data, err := c.did.EncodeTransferOrgOwner(p)
+	if err != nil {
+		return nil, err
+	}
+	return c.aa.HandleOps(ctx, domain.HandleOpsPayload{
+		Target:           p.TargetAddress,
+		Data:             data,
+		MultipleRPCCalls: p.MultipleRPCCalls,
+	})
+}
+
+func (c *CompositeAdapter) AddMember(ctx context.Context, p domain.OrgMemberPayload) (*domain.BlockchainResult, error) {
+	data, err := c.did.EncodeAddMember(p)
+	if err != nil {
+		return nil, err
+	}
+	return c.aa.HandleOps(ctx, domain.HandleOpsPayload{
+		Target:           p.TargetAddress,
+		Data:             data,
+		MultipleRPCCalls: p.MultipleRPCCalls,
+	})
+}
+
+func (c *CompositeAdapter) RemoveMember(ctx context.Context, p domain.OrgMemberPayload) (*domain.BlockchainResult, error) {
+	data, err := c.did.EncodeRemoveMember(p)
+	if err != nil {
+		return nil, err
+	}
+	return c.aa.HandleOps(ctx, domain.HandleOpsPayload{
+		Target:           p.TargetAddress,
+		Data:             data,
+		MultipleRPCCalls: p.MultipleRPCCalls,
+	})
+}
+
+func (c *CompositeAdapter) UpdateMember(ctx context.Context, p domain.OrgMemberPayload) (*domain.BlockchainResult, error) {
+	data, err := c.did.EncodeUpdateMember(p)
+	if err != nil {
+		return nil, err
+	}
+	return c.aa.HandleOps(ctx, domain.HandleOpsPayload{
+		Target:           p.TargetAddress,
+		Data:             data,
+		MultipleRPCCalls: p.MultipleRPCCalls,
+	})
+}
 
 func (c *CompositeAdapter) HandleOps(ctx context.Context, p domain.HandleOpsPayload) (*domain.BlockchainResult, error) {
 	return c.aa.HandleOps(ctx, p)
@@ -87,8 +260,6 @@ func (c *CompositeAdapter) HandleOps(ctx context.Context, p domain.HandleOpsPayl
 func (c *CompositeAdapter) DeployWallet(ctx context.Context, p domain.DeployWalletPayload) (*domain.BlockchainResult, error) {
 	return c.aa.DeployWallet(ctx, p)
 }
-
-// ── Verifiable Credentials Operations ───────────────────────────
 
 func (c *CompositeAdapter) IssueCredential(ctx context.Context, p domain.IssueCredentialPayload) (*domain.BlockchainResult, error) {
 	data, err := c.vc.EncodeIssueCredential(p)
@@ -185,8 +356,6 @@ func (c *CompositeAdapter) SetDidOrgStorage(ctx context.Context, p domain.SetAdd
 		MultipleRPCCalls: p.MultipleRPCCalls,
 	})
 }
-
-// ── Alias Operations ──────────────────────────────────────────────
 
 func (c *CompositeAdapter) RegisterTLD(ctx context.Context, p domain.RegisterTLDPayload) (*domain.BlockchainResult, error) {
 	data, err := c.alias.EncodeRegisterTLD(p)

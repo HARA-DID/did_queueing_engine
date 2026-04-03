@@ -22,23 +22,19 @@ type AAAdapter struct {
 	walletFactory *walletfactory.WalletFactory
 }
 
-// NewAAAdapter initializes the AA SDK components.
 func NewAAAdapter(p *Provider, cfg config.BlockchainConfig) (*AAAdapter, error) {
 	initCtx := context.Background()
 
-	// ── EntryPoint ──────────────────────────────────────────────────
 	entryPoint, err := aapkg.NewEntryPointWithHNS(initCtx, cfg.EntryPointHNS, p.Chain)
 	if err != nil {
 		return nil, fmt.Errorf("resolve EntryPoint via HNS %q: %w", cfg.EntryPointHNS, err)
 	}
 
-	// ── GasManager ─────────────────────────────────────────────────
 	gasMgr, err := gasmanager.NewGasManagerWithHNS(initCtx, cfg.GasManagerHNS, p.Chain)
 	if err != nil {
 		return nil, fmt.Errorf("resolve GasManager via HNS %q: %w", cfg.GasManagerHNS, err)
 	}
 
-	// ── WalletFactory ──────────────────────────────────────────────
 	walletFact, err := walletfactory.NewWalletFactoryWithHNS(initCtx, cfg.WalletFactoryHNS, p.Chain)
 	if err != nil {
 		return nil, fmt.Errorf("resolve WalletFactory via HNS %q: %w", cfg.WalletFactoryHNS, err)
@@ -60,7 +56,6 @@ func (a *AAAdapter) HandleOps(ctx context.Context, p domain.HandleOpsPayload) (*
 		return nil, fmt.Errorf("failed to get wallet address: %w", err)
 	}
 
-	// 1. Fetch Nonce automatically if not provided
 	var nonce *big.Int
 	if p.UserNonce != "" {
 		n, ok := new(big.Int).SetString(p.UserNonce, 0)
@@ -69,7 +64,6 @@ func (a *AAAdapter) HandleOps(ctx context.Context, p domain.HandleOpsPayload) (*
 		}
 		nonce = n
 	} else {
-		// Use default key 0 for GetNonce
 		n, err := a.entryPoint.GetNonce(ctx, sender, big.NewInt(0))
 		if err != nil {
 			return nil, fmt.Errorf("failed to get nonce from EntryPoint: %w", err)
@@ -77,7 +71,6 @@ func (a *AAAdapter) HandleOps(ctx context.Context, p domain.HandleOpsPayload) (*
 		nonce = n
 	}
 
-	// 2. Construct UserOp
 	val := big.NewInt(0)
 	if p.Value != "" {
 		if v, ok := new(big.Int).SetString(p.Value, 0); ok {
@@ -106,7 +99,6 @@ func (a *AAAdapter) HandleOps(ctx context.Context, p domain.HandleOpsPayload) (*
 		UserOp: userOp,
 	}
 
-	// 3. Dispatch
 	txHashes, err := a.entryPoint.HandleOps(ctx, a.provider.Wallet, params, p.MultipleRPCCalls)
 	if err != nil {
 		return nil, fmt.Errorf("entryPoint.HandleOps: %w", err)
@@ -120,18 +112,4 @@ func (a *AAAdapter) DeployWallet(ctx context.Context, p domain.DeployWalletPaylo
 		return nil, fmt.Errorf("walletFactory.DeployWallet: %w", err)
 	}
 	return &domain.BlockchainResult{TxHashes: txHashes}, nil
-}
-
-// DID Stub methods (to be called via the Composite adapter, but implemented here for completeness if needed)
-func (a *AAAdapter) CreateDID(ctx context.Context, p domain.CreateDIDPayload) (*domain.BlockchainResult, error) {
-	return nil, fmt.Errorf("not implemented in AA adapter")
-}
-func (a *AAAdapter) AddKey(ctx context.Context, p domain.AddKeyPayload) (*domain.BlockchainResult, error) {
-	return nil, fmt.Errorf("not implemented in AA adapter")
-}
-func (a *AAAdapter) AddClaim(ctx context.Context, p domain.AddClaimPayload) (*domain.BlockchainResult, error) {
-	return nil, fmt.Errorf("not implemented in AA adapter")
-}
-func (a *AAAdapter) StoreData(ctx context.Context, p domain.StoreDataPayload) (*domain.BlockchainResult, error) {
-	return nil, fmt.Errorf("not implemented in AA adapter")
 }

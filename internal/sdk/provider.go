@@ -16,46 +16,42 @@ import (
 // Provider holds the shared blockchain infrastructure components.
 type Provider struct {
 	Network    *haranetwork.Network
-	Wallet     *harawallet.Wallet
 	Chain      *harachain.Blockchain
+	Wallet     *harawallet.Wallet
 	WalletAddr harautils.Address
 }
 
-// NewProvider initializes the network, wallet, and blockchain layers.
 func NewProvider(cfg config.BlockchainConfig) (*Provider, error) {
-	// ── 1. Network ─────────────────────────────────────────────────────────
+	initCtx := context.Background()
+
 	network := haranetwork.NewNetwork(
 		cfg.RPCURLs,
 		"1.0",
-		0,
-		harautils.LogConfig{},
+		0,                       
+		harautils.LogConfig{},  
 	)
 
-	initCtx := context.Background()
 	if !network.IsOnline(initCtx) {
 		return nil, fmt.Errorf("all configured RPC endpoints are unreachable: %v", cfg.RPCURLs)
 	}
 
-	// ── 2. Chain ID ───────────────────────────────────────────────────────
 	chainID, err := network.ChainID(initCtx)
 	if err != nil {
 		return nil, fmt.Errorf("fetch chain id: %w", err)
 	}
 
-	// ── 3. Wallet ──────────────────────────────────────────────────────────
 	wallet := harawallet.NewWallet(cfg.PrivateKey)
 	walletAddr, err := wallet.GetAddress()
 	if err != nil {
-		return nil, fmt.Errorf("derive wallet address from private key: %w", err)
+		return nil, fmt.Errorf("derive wallet address: %w", err)
 	}
 
-	// ── 4. Blockchain ──────────────────────────────────────────────────────
 	chain := harachain.NewBlockchain(network, new(big.Int).SetUint64(chainID))
 
 	return &Provider{
 		Network:    network,
-		Wallet:     wallet,
 		Chain:      chain,
+		Wallet:     wallet,
 		WalletAddr: walletAddr,
 	}, nil
 }

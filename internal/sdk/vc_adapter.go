@@ -22,23 +22,19 @@ type VCAdapter struct {
 	CertificateNFT *nftbase.NFTBase
 }
 
-// NewVCAdapter initializes the VC SDK components.
 func NewVCAdapter(p *Provider, cfg config.BlockchainConfig) (*VCAdapter, error) {
 	initCtx := context.Background()
 
-	// ── Factory ────────────────────────────────────────────────────
 	factory, err := vcfact.NewVCFactoryWithHNS(initCtx, cfg.VCFactoryHNS, p.Chain)
 	if err != nil {
 		return nil, fmt.Errorf("resolve VCFactory via HNS %q: %w", cfg.VCFactoryHNS, err)
 	}
 
-	// ── Storage ────────────────────────────────────────────────────
 	storage, err := vcstor.NewVCStorageWithHNS(initCtx, cfg.VCStorageHNS, p.Chain)
 	if err != nil {
 		return nil, fmt.Errorf("resolve VCStorage via HNS %q: %w", cfg.VCStorageHNS, err)
 	}
 
-	// ── NFTs ───────────────────────────────────────────────────────
 	idNFT, err := nftbase.NewNFTBaseWithHNS(initCtx, cfg.VCIdentityNFTHNS, p.Chain)
 	if err != nil {
 		return nil, fmt.Errorf("resolve IdentityNFT via HNS %q: %w", cfg.VCIdentityNFTHNS, err)

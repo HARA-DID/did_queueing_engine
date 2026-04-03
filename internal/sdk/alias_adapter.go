@@ -19,17 +19,14 @@ type AliasAdapter struct {
 	storage  *aliasstor.AliasStorage
 }
 
-// NewAliasAdapter initializes the Alias SDK components.
 func NewAliasAdapter(p *Provider, cfg config.BlockchainConfig) (*AliasAdapter, error) {
 	initCtx := context.Background()
 
-	// ── Factory ────────────────────────────────────────────────────
 	factory, err := aliasfact.NewAliasFactoryWithHNS(initCtx, cfg.AliasFactoryHNS, p.Chain)
 	if err != nil {
 		return nil, fmt.Errorf("resolve AliasFactory via HNS %q: %w", cfg.AliasFactoryHNS, err)
 	}
 
-	// ── Storage ────────────────────────────────────────────────────
 	storage, err := aliasstor.NewAliasStorageWithHNS(initCtx, cfg.AliasStorageHNS, p.Chain)
 	if err != nil {
 		return nil, fmt.Errorf("resolve AliasStorage via HNS %q: %w", cfg.AliasStorageHNS, err)

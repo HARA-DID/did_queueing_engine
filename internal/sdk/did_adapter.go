@@ -3,48 +3,33 @@ package sdk
 import (
 	"context"
 	"fmt"
+	"math/big"
 
 	didfactory "github.com/HARA-DID/did-root-sdk/pkg/factory"
-	haracontract "github.com/meQlause/hara-core-blockchain-lib/pkg/contract"
 	harautils "github.com/meQlause/hara-core-blockchain-lib/utils"
 
 	"github.com/myorg/worker-service/internal/config"
 	"github.com/myorg/worker-service/internal/domain"
 )
 
-// DIDAdapter implements DID-related blockchain operations.
 type DIDAdapter struct {
 	provider *Provider
 	factory  *didfactory.Factory
 }
 
-// NewDIDAdapter initializes the DID SDK factory with common resources.
 func NewDIDAdapter(p *Provider, cfg config.BlockchainConfig) (*DIDAdapter, error) {
 	initCtx := context.Background()
-	var contract *haracontract.Contract
-	var err error
 
-	// ── Contract Resolution ──────────────────────────────────────────
-	contract, err = p.Chain.ContractWithHNS(initCtx, cfg.DIDRootFactoryHNS)
+	factory, err := didfactory.NewFactoryWithHNS(initCtx, cfg.DIDRootFactoryHNS, p.Chain)
 	if err != nil {
-		return nil, fmt.Errorf("resolve contract via HNS %q: %w", cfg.DIDRootFactoryHNS, err)
+		return nil, fmt.Errorf("resolve DIDFactory via HNS %q: %w", cfg.DIDRootFactoryHNS, err)
 	}
-
-	// ── Factory ─────────────────────────────────────────────────────
-	factory := didfactory.NewFactory(
-		p.WalletAddr,
-		harautils.ABI{}, 
-		p.Chain,
-		contract,
-	)
 
 	return &DIDAdapter{
 		provider: p,
 		factory:  factory,
 	}, nil
 }
-
-// ── Encode Methods ───────────────────────────────────────────────
 
 func (a *DIDAdapter) EncodeCreateDID(p domain.CreateDIDPayload) ([]byte, error) {
 	keyID, err := resolveKeyIdentifier(p.KeyIdentifier)
@@ -65,13 +50,12 @@ func (a *DIDAdapter) EncodeAddKey(p domain.AddKeyPayload) ([]byte, error) {
 		return nil, err
 	}
 
-	// The SDK hashes the public key to [32]byte
 	keyHashed := harautils.HexToHash(p.PublicKey)
 
 	argBuilder := a.provider.Network.ArgBuilder().
 		Type("uint256").Value(p.DIDIndex).
 		Type("bytes32").Value(keyHashed).
-		Type("string").Value(""). // KeyIdentifierDst usually empty in these calls
+		Type("string").Value(""). 
 		Type("uint8").Value(p.Purpose).
 		Type("uint8").Value(p.KeyType)
 	data := harautils.EncodeArgs(argBuilder)
@@ -111,7 +95,137 @@ func (a *DIDAdapter) EncodeStoreData(p domain.StoreDataPayload) ([]byte, error) 
 	return a.encodeDID(didfactory.TypeStoreData, data, keyID)
 }
 
-// ── Private Helpers ──────────────────────────────────────────────
+func (a *DIDAdapter) EncodeUpdateDID(p domain.UpdateDIDPayload) ([]byte, error) {
+	keyID, err := resolveKeyIdentifier(p.KeyIdentifier)
+	if err != nil {
+		return nil, err
+	}
+
+	argBuilder := a.provider.Network.ArgBuilder().
+		Type("uint256").Value(p.DIDIndex).
+		Type("string").Value(p.URI)
+	data := harautils.EncodeArgs(argBuilder)
+
+	return a.encodeDID(didfactory.TypeUpdateDID, data, keyID)
+}
+
+func (a *DIDAdapter) EncodeDeactivateDID(p domain.DIDLifecyclePayload) ([]byte, error) {
+	keyID, err := resolveKeyIdentifier(p.KeyIdentifier)
+	if err != nil {
+		return nil, err
+	}
+
+	argBuilder := a.provider.Network.ArgBuilder().
+		Type("uint256").Value(p.DIDIndex)
+	data := harautils.EncodeArgs(argBuilder)
+
+	return a.encodeDID(didfactory.TypeDeactivateDID, data, keyID)
+}
+
+func (a *DIDAdapter) EncodeReactivateDID(p domain.DIDLifecyclePayload) ([]byte, error) {
+	keyID, err := resolveKeyIdentifier(p.KeyIdentifier)
+	if err != nil {
+		return nil, err
+	}
+
+	argBuilder := a.provider.Network.ArgBuilder().
+		Type("uint256").Value(p.DIDIndex)
+	data := harautils.EncodeArgs(argBuilder)
+
+	return a.encodeDID(didfactory.TypeReactivateDID, data, keyID)
+}
+
+func (a *DIDAdapter) EncodeTransferDIDOwner(p domain.TransferDIDOwnerPayload) ([]byte, error) {
+	keyID, err := resolveKeyIdentifier(p.KeyIdentifier)
+	if err != nil {
+		return nil, err
+	}
+
+	argBuilder := a.provider.Network.ArgBuilder().
+		Type("uint256").Value(p.DIDIndex).
+		Type("address").Value(harautils.HexToAddress(p.NewOwner))
+	data := harautils.EncodeArgs(argBuilder)
+
+	return a.encodeDID(didfactory.TypeTransferDID, data, keyID)
+}
+
+func (a *DIDAdapter) EncodeDeleteData(p domain.DeleteDataPayload) ([]byte, error) {
+	keyID, err := resolveKeyIdentifier(p.KeyIdentifier)
+	if err != nil {
+		return nil, err
+	}
+
+	argBuilder := a.provider.Network.ArgBuilder().
+		Type("uint256").Value(p.DIDIndex).
+		Type("string").Value(p.Key)
+	data := harautils.EncodeArgs(argBuilder)
+
+	return a.encodeDID(didfactory.TypeDeleteData, data, keyID)
+}
+
+func (a *DIDAdapter) EncodeRemoveKey(p domain.RemoveKeyPayload) ([]byte, error) {
+	keyID, err := resolveKeyIdentifier(p.KeyIdentifier)
+	if err != nil {
+		return nil, err
+	}
+
+	argBuilder := a.provider.Network.ArgBuilder().
+		Type("uint256").Value(p.DIDIndex).
+		Type("bytes32").Value(harautils.HexToHash(p.KeyDataHashed))
+	data := harautils.EncodeArgs(argBuilder)
+
+	return a.encodeDID(didfactory.TypeRemoveKey, data, keyID)
+}
+
+func (a *DIDAdapter) EncodeRemoveClaim(p domain.RemoveClaimPayload) ([]byte, error) {
+	keyID, err := resolveKeyIdentifier(p.KeyIdentifier)
+	if err != nil {
+		return nil, err
+	}
+
+	argBuilder := a.provider.Network.ArgBuilder().
+		Type("uint256").Value(p.DIDIndex).
+		Type("bytes32").Value(harautils.HexToHash(p.ClaimID))
+	data := harautils.EncodeArgs(argBuilder)
+
+	return a.encodeDID(didfactory.TypeRemoveClaim, data, keyID)
+}
+
+func (a *DIDAdapter) EncodeGeneralExecute(p domain.GeneralExecutePayload) ([]byte, error) {
+	keyID, err := resolveKeyIdentifier(p.KeyIdentifier)
+	if err != nil {
+		return nil, err
+	}
+	return a.encodeDID(didfactory.TypeGeneralExecute, p.Data, keyID)
+}
+
+func (a *DIDAdapter) EncodeCreateOrg(p domain.CreateOrgPayload) ([]byte, error) {
+	return a.encodeOrg(didfactory.TypeCreateOrgDID, p.Data, big.NewInt(0))
+}
+
+func (a *DIDAdapter) EncodeDeactivateOrg(p domain.OrgLifecyclePayload) ([]byte, error) {
+	return a.encodeOrg(didfactory.TypeDeactivateOrgDID, nil, p.OrgDIDIndex)
+}
+
+func (a *DIDAdapter) EncodeReactivateOrg(p domain.OrgLifecyclePayload) ([]byte, error) {
+	return a.encodeOrg(didfactory.TypeReactivateOrgDID, nil, p.OrgDIDIndex)
+}
+
+func (a *DIDAdapter) EncodeTransferOrgOwner(p domain.OrgTransferPayload) ([]byte, error) {
+	return a.encodeOrg(didfactory.TypeTransferOrgDID, p.Data, p.OrgDIDIndex)
+}
+
+func (a *DIDAdapter) EncodeAddMember(p domain.OrgMemberPayload) ([]byte, error) {
+	return a.encodeOrg(didfactory.TypeAddMember, p.Data, p.OrgDIDIndex)
+}
+
+func (a *DIDAdapter) EncodeRemoveMember(p domain.OrgMemberPayload) ([]byte, error) {
+	return a.encodeOrg(didfactory.TypeRemoveMember, p.Data, p.OrgDIDIndex)
+}
+
+func (a *DIDAdapter) EncodeUpdateMember(p domain.OrgMemberPayload) ([]byte, error) {
+	return a.encodeOrg(didfactory.TypeUpdateMember, p.Data, p.OrgDIDIndex)
+}
 
 func (a *DIDAdapter) encodeDID(txType uint8, data []byte, keyIdentifier string) ([]byte, error) {
 	method, ok := a.factory.ContractABI.Methods["callExternalDID"]
@@ -127,9 +241,19 @@ func (a *DIDAdapter) encodeDID(txType uint8, data []byte, keyIdentifier string) 
 	return append(method.ID, inputs...), nil
 }
 
-// ---------------------------------------------------------------------------
-// DID Helpers
-// ---------------------------------------------------------------------------
+func (a *DIDAdapter) encodeOrg(txType uint8, data []byte, orgDIDIndex *big.Int) ([]byte, error) {
+	method, ok := a.factory.ContractABI.Methods["callExternalOrg"]
+	if !ok {
+		return nil, fmt.Errorf("method callExternalOrg not found in ABI")
+	}
+
+	inputs, err := method.Inputs.Pack(txType, data, orgDIDIndex)
+	if err != nil {
+		return nil, fmt.Errorf("failed to pack callExternalOrg arguments: %w", err)
+	}
+
+	return append(method.ID, inputs...), nil
+}
 
 func resolveKeyIdentifier(provided string) (string, error) {
 	if provided != "" {

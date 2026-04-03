@@ -6,20 +6,31 @@ import (
 	"github.com/myorg/worker-service/internal/domain"
 )
 
-// BlockchainService is the abstraction over the DID + Blockchain SDKs.
-// All worker code calls this interface; no SDK import appears outside /sdk.
 type BlockchainService interface {
-	// ── DID Operations ──────────────────────────────────────────────
 	CreateDID(ctx context.Context, payload domain.CreateDIDPayload) (*domain.BlockchainResult, error)
 	AddKey(ctx context.Context, payload domain.AddKeyPayload) (*domain.BlockchainResult, error)
 	AddClaim(ctx context.Context, payload domain.AddClaimPayload) (*domain.BlockchainResult, error)
 	StoreData(ctx context.Context, payload domain.StoreDataPayload) (*domain.BlockchainResult, error)
+	UpdateDID(ctx context.Context, payload domain.UpdateDIDPayload) (*domain.BlockchainResult, error)
+	DeactivateDID(ctx context.Context, payload domain.DIDLifecyclePayload) (*domain.BlockchainResult, error)
+	ReactivateDID(ctx context.Context, payload domain.DIDLifecyclePayload) (*domain.BlockchainResult, error)
+	TransferDIDOwner(ctx context.Context, payload domain.TransferDIDOwnerPayload) (*domain.BlockchainResult, error)
+	DeleteData(ctx context.Context, payload domain.DeleteDataPayload) (*domain.BlockchainResult, error)
+	RemoveKey(ctx context.Context, payload domain.RemoveKeyPayload) (*domain.BlockchainResult, error)
+	RemoveClaim(ctx context.Context, payload domain.RemoveClaimPayload) (*domain.BlockchainResult, error)
+	GeneralExecute(ctx context.Context, payload domain.GeneralExecutePayload) (*domain.BlockchainResult, error)
 
-	// ── Account Abstraction Operations ──────────────────────────────
+	CreateOrg(ctx context.Context, payload domain.CreateOrgPayload) (*domain.BlockchainResult, error)
+	DeactivateOrg(ctx context.Context, payload domain.OrgLifecyclePayload) (*domain.BlockchainResult, error)
+	ReactivateOrg(ctx context.Context, payload domain.OrgLifecyclePayload) (*domain.BlockchainResult, error)
+	TransferOrgOwner(ctx context.Context, payload domain.OrgTransferPayload) (*domain.BlockchainResult, error)
+	AddMember(ctx context.Context, payload domain.OrgMemberPayload) (*domain.BlockchainResult, error)
+	RemoveMember(ctx context.Context, payload domain.OrgMemberPayload) (*domain.BlockchainResult, error)
+	UpdateMember(ctx context.Context, payload domain.OrgMemberPayload) (*domain.BlockchainResult, error)
+
 	HandleOps(ctx context.Context, payload domain.HandleOpsPayload) (*domain.BlockchainResult, error)
 	DeployWallet(ctx context.Context, payload domain.DeployWalletPayload) (*domain.BlockchainResult, error)
 
-	// ── Verifiable Credentials Operations ───────────────────────────
 	IssueCredential(ctx context.Context, payload domain.IssueCredentialPayload) (*domain.BlockchainResult, error)
 	BurnCredential(ctx context.Context, payload domain.BurnCredentialPayload) (*domain.BlockchainResult, error)
 	UpdateMetadata(ctx context.Context, payload domain.UpdateMetadataPayload) (*domain.BlockchainResult, error)
@@ -29,7 +40,6 @@ type BlockchainService interface {
 	SetDidRootStorage(ctx context.Context, payload domain.SetAddressPayload) (*domain.BlockchainResult, error)
 	SetDidOrgStorage(ctx context.Context, payload domain.SetAddressPayload) (*domain.BlockchainResult, error)
 
-	// ── Alias Operations ──────────────────────────────────────────────
 	RegisterTLD(ctx context.Context, payload domain.RegisterTLDPayload) (*domain.BlockchainResult, error)
 	RegisterDomain(ctx context.Context, payload domain.RegisterDomainPayload) (*domain.BlockchainResult, error)
 	SetDIDAlias(ctx context.Context, payload domain.SetDIDAliasPayload) (*domain.BlockchainResult, error)
