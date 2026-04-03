@@ -4,13 +4,13 @@ A production-ready Go worker that consumes events from **Redis Streams**, stores
 job state in **PostgreSQL**, and executes blockchain transactions via a **Composite SDK Adapter** (DID Root, Verifiable Credentials, Alias) with **Account Abstraction (AA)** routing.
 
 ```
-Redis Stream ──XREADGROUP──► Worker Pool ──► EventService ──► CompositeAdapter ──► SDK Adapters
-                                   │                              │                   (DID/VC/Alias)
-                                   │                              │                    │
-                                   ▼                              ▼                    ▼
-                             PostgreSQL (jobs)              AAAdapter (EntryPoint)  Encode Data
-                                                                  │
-                                                                  ▼
+Redis Stream ──XREADGROUP──► Worker Pool ──► EventService ──► CompositeAdapter 
+                                   │                              │      │
+                                   │                              │      └─► SDK Adapters (Encode)
+                                   ▼                              │              │
+                             PostgreSQL (jobs)                    └─► AAAdapter (HandleOps)
+                                                                         │
+                                                                         ▼
                                                               Blockchain (Hara Chain)
 ```
 
