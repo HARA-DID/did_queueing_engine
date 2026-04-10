@@ -28,3 +28,6 @@ coverage.out
 
 # Log files
 *.log
+
+# Scripts
+redis-scripts/

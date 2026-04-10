@@ -21,7 +21,7 @@ type Provider struct {
 	WalletAddr harautils.Address
 }
 
-func NewProvider(cfg config.BlockchainConfig) (*Provider, error) {
+func NewProvider(cfg config.BlockchainConfig, privateKey string) (*Provider, error) {
 	initCtx := context.Background()
 
 	network := haranetwork.NewNetwork(
@@ -40,7 +40,7 @@ func NewProvider(cfg config.BlockchainConfig) (*Provider, error) {
 		return nil, fmt.Errorf("fetch chain id: %w", err)
 	}
 
-	wallet := harawallet.NewWallet(cfg.PrivateKey)
+	wallet := harawallet.NewWallet(privateKey)
 	walletAddr, err := wallet.GetAddress()
 	if err != nil {
 		return nil, fmt.Errorf("derive wallet address: %w", err)

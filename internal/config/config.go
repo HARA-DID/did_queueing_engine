@@ -32,7 +32,7 @@ type DBConfig struct {
 
 type BlockchainConfig struct {
 	RPCURLs             []string
-	PrivateKey          string
+	PrivateKeys         []string
 	EntryPointHNS       string
 	GasManagerHNS       string
 	WalletHNS           string
@@ -78,7 +78,7 @@ func Load() (*Config, error) {
 		},
 		Blockchain: BlockchainConfig{
 			RPCURLs:             splitEnv("RPC_URLS", ","),
-			PrivateKey:          getEnvOrDefault("PRIVATE_KEY", "0x"),
+			PrivateKeys:         splitEnv("PRIVATE_KEYS", ","),
 			EntryPointHNS:       getEnvOrDefault("AA_ENTRYPOINT_HNS", ""),
 			GasManagerHNS:       getEnvOrDefault("AA_GAS_MANAGER_HNS", ""),
 			WalletHNS:           getEnvOrDefault("AA_WALLET_HNS", ""),
@@ -95,12 +95,11 @@ func Load() (*Config, error) {
 		},
 		Worker: WorkerConfig{
 			ConsumerName:    getEnvOrDefault("CONSUMER_NAME", defaultConsumerName()),
-			Concurrency:     getEnvInt("WORKER_CONCURRENCY", 10),
+			BatchSize:       int64(getEnvInt("BATCH_SIZE", 10)),
 			PollInterval:    getEnvDuration("POLL_INTERVAL", 100*time.Millisecond),
 			MaxRetry:        getEnvInt("MAX_RETRY", 3),
 			RetryBaseDelay:  getEnvDuration("RETRY_BASE_DELAY", 1*time.Second),
 			ShutdownTimeout: getEnvDuration("SHUTDOWN_TIMEOUT", 30*time.Second),
-			BatchSize:       int64(getEnvInt("BATCH_SIZE", 10)),
 		},
 		Server: ServerConfig{
 			Port: getEnvOrDefault("SERVER_PORT", "8080"),
@@ -123,12 +122,10 @@ func (c *Config) validate() error {
 	if len(c.Blockchain.RPCURLs) == 0 {
 		return fmt.Errorf("RPC_URLS is required")
 	}
-	if c.Blockchain.PrivateKey == "" {
-		return fmt.Errorf("PRIVATE_KEY is required")
+	if len(c.Blockchain.PrivateKeys) == 0 {
+		return fmt.Errorf("PRIVATE_KEYS is required and cannot be empty")
 	}
-	if c.Worker.Concurrency < 1 {
-		return fmt.Errorf("WORKER_CONCURRENCY must be >= 1")
-	}
+
 	if c.Worker.MaxRetry < 0 {
 		return fmt.Errorf("MAX_RETRY must be >= 0")
 	}

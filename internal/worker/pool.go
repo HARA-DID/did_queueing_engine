@@ -6,14 +6,14 @@ import (
 	"fmt"
 	"time"
 
+	redisinfra "github.com/HARA-DID/did-queueing-engine/internal/infra/redis"
+
 	"github.com/HARA-DID/did-queueing-engine/internal/config"
 	"github.com/HARA-DID/did-queueing-engine/internal/domain"
-	redisinfra "github.com/HARA-DID/did-queueing-engine/internal/infra/redis"
 	"github.com/HARA-DID/did-queueing-engine/internal/repository"
 	"github.com/HARA-DID/did-queueing-engine/pkg"
 	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
-	"golang.org/x/sync/errgroup"
 )
 
 // Pool is the Redis Streams consumer group worker.
@@ -49,47 +49,36 @@ func NewPool(
 
 func (p *Pool) Run(ctx context.Context) {
 	p.log.WithFields(logrus.Fields{
-		"stream":      p.redisCfg.StreamName,
-		"group":       p.redisCfg.GroupName,
-		"consumer":    p.cfg.ConsumerName,
-		"concurrency": p.cfg.Concurrency,
-	}).Info("starting worker pool")
-
-	g, groupCtx := errgroup.WithContext(ctx)
-	g.SetLimit(p.cfg.Concurrency)
+		"stream":   p.redisCfg.StreamName,
+		"group":    p.redisCfg.GroupName,
+		"consumer": p.cfg.ConsumerName,
+	}).Info("starting worker processing synchronously")
 
 	for {
 		select {
-		case <-groupCtx.Done():
-			p.log.Info("context cancelled; waiting for in-flight jobs")
-			_ = g.Wait()
-			p.log.Info("all in-flight jobs finished; worker pool stopped")
+		case <-ctx.Done():
+			p.log.Info("context cancelled; worker stopped")
 			return
 		default:
 		}
 
-		messages, err := p.readMessages(groupCtx)
+		messages, err := p.readMessages(ctx)
 		if err != nil {
-			if groupCtx.Err() != nil {
-				_ = g.Wait()
+			if ctx.Err() != nil {
 				return
 			}
 			p.log.WithError(err).Error("XREADGROUP error; backing off")
-			sleep(groupCtx, p.cfg.PollInterval*5)
+			sleep(ctx, p.cfg.PollInterval*5)
 			continue
 		}
 
 		if len(messages) == 0 {
-			sleep(groupCtx, p.cfg.PollInterval)
+			sleep(ctx, p.cfg.PollInterval)
 			continue
 		}
 
 		for _, msg := range messages {
-			m := msg // capture for closure
-			g.Go(func() error {
-				p.processMessage(groupCtx, m)
-				return nil
-			})
+			p.processMessage(ctx, msg)
 		}
 	}
 }

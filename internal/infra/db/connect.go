@@ -7,7 +7,6 @@ import (
 	"github.com/HARA-DID/did-queueing-engine/internal/config"
 )
 
-// Connect opens a PostgreSQL connection pool using the given config.
 func Connect(cfg config.DBConfig) (*sql.DB, error) {
 	db, err := sql.Open("postgres", cfg.URL)
 	if err != nil {

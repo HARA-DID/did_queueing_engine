@@ -2,9 +2,12 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
+
+	"golang.org/x/sync/errgroup"
 
 	"github.com/joho/godotenv"
 	"github.com/prometheus/client_golang/prometheus"
@@ -59,61 +62,70 @@ func main() {
 		"group":  cfg.Redis.GroupName,
 	}).Info("consumer group ready")
 
-	// ── Blockchain Modular SDK ─────────────────────────────────────────────
-	provider, err := sdk.NewProvider(cfg.Blockchain)
-	if err != nil {
-		log.WithError(err).Fatal("failed to initialise blockchain provider")
-	}
-
-	didAdapter, err := sdk.NewDIDAdapter(provider, cfg.Blockchain)
-	if err != nil {
-		log.WithError(err).Fatal("failed to initialise DID adapter")
-	}
-
-	aaAdapter, err := sdk.NewAAAdapter(provider, cfg.Blockchain)
-	if err != nil {
-		log.WithError(err).Fatal("failed to initialise AA adapter")
-	}
-
-	vcAdapter, err := sdk.NewVCAdapter(provider, cfg.Blockchain)
-	if err != nil {
-		log.WithError(err).Fatal("failed to initialise VC adapter")
-	}
-
-	aliasAdapter, err := sdk.NewAliasAdapter(provider, cfg.Blockchain)
-	if err != nil {
-		log.WithError(err).Fatal("failed to initialise Alias adapter")
-	}
-
-	blockchainSvc := sdk.NewCompositeAdapter(didAdapter, aaAdapter, vcAdapter, aliasAdapter)
-	log.Info("blockchain modular adapters initialised")
-
-	// ── Repositories ───────────────────────────────────────────────────────
+	// ── Metrics, Repositories, Callbacks ───────────────────────────────────
 	jobRepo := infradb.NewPostgresJobRepository(db)
-
-	// ── Callbacks ──────────────────────────────────────────────────────────
 	callbackRegistry := callback.NewDefaultRegistry()
-
-	// ── Services ───────────────────────────────────────────────────────────
-	eventSvc := service.NewEventService(jobRepo, blockchainSvc, callbackRegistry, log)
-
-	// ── Metrics ────────────────────────────────────────────────────────────
 	metrics := pkg.NewMetrics(prometheus.DefaultRegisterer)
-
-	// ── Handler ────────────────────────────────────────────────────────────
 	retryCfg := pkg.DefaultRetryConfig(cfg.Worker.MaxRetry, cfg.Worker.RetryBaseDelay)
-	handler := worker.NewHandler(eventSvc, retryCfg, metrics, log)
-
-	// ── Worker pool ────────────────────────────────────────────────────────
-	pool := worker.NewPool(redisClient, handler, jobRepo, cfg.Worker, cfg.Redis, metrics, log)
 
 	// ── HTTP server (health + metrics) ─────────────────────────────────────
 	httpSrv := worker.NewHTTPServer(cfg.Server.Port, log)
 	httpSrv.Start()
 
-	// ── Run until signal ───────────────────────────────────────────────────
-	log.Info("worker service started")
-	pool.Run(ctx) // blocks until ctx cancelled
+	log.WithField("worker_count", len(cfg.Blockchain.PrivateKeys)).Info("starting worker pools per identity")
+
+	// ── Worker pool per private key ────────────────────────────────────────
+	g, gCtx := errgroup.WithContext(ctx)
+	for i, pk := range cfg.Blockchain.PrivateKeys {
+		workerIndex := i + 1
+		workerConsumerName := fmt.Sprintf("%s-%d", cfg.Worker.ConsumerName, workerIndex)
+
+		workerConsumerNameCaptured := workerConsumerName
+
+		g.Go(func() error {
+			workerLog := log.WithField("consumer", workerConsumerNameCaptured)
+
+			provider, err := sdk.NewProvider(cfg.Blockchain, pk)
+			if err != nil {
+				workerLog.WithError(err).Fatal("failed to initialise blockchain provider")
+			}
+
+			didAdapter, err := sdk.NewDIDAdapter(provider, cfg.Blockchain)
+			if err != nil {
+				workerLog.WithError(err).Fatal("failed to initialise DID adapter")
+			}
+
+			aaAdapter, err := sdk.NewAAAdapter(provider, cfg.Blockchain)
+			if err != nil {
+				workerLog.WithError(err).Fatal("failed to initialise AA adapter")
+			}
+
+			vcAdapter, err := sdk.NewVCAdapter(provider, cfg.Blockchain)
+			if err != nil {
+				workerLog.WithError(err).Fatal("failed to initialise VC adapter")
+			}
+
+			aliasAdapter, err := sdk.NewAliasAdapter(provider, cfg.Blockchain)
+			if err != nil {
+				workerLog.WithError(err).Fatal("failed to initialise Alias adapter")
+			}
+
+			blockchainSvc := sdk.NewCompositeAdapter(didAdapter, aaAdapter, vcAdapter, aliasAdapter)
+			eventSvc := service.NewEventService(jobRepo, blockchainSvc, callbackRegistry, log)
+			handler := worker.NewHandler(eventSvc, retryCfg, metrics, log)
+
+			workerCfg := cfg.Worker
+			workerCfg.ConsumerName = workerConsumerNameCaptured
+
+			pool := worker.NewPool(redisClient, handler, jobRepo, workerCfg, cfg.Redis, metrics, log)
+
+			workerLog.Info("worker pool starting")
+			pool.Run(gCtx)
+			return nil
+		})
+	}
+
+	_ = g.Wait()
 
 	// ── Graceful shutdown ──────────────────────────────────────────────────
 	log.Info("shutting down HTTP server")
