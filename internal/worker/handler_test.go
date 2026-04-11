@@ -26,7 +26,9 @@ func buildHandler(t *testing.T, bc *mocks.MockBlockchainService) (*worker.Handle
 	t.Helper()
 	repo := mocks.NewMockJobRepository()
 	log := newTestLogger()
-	svc := service.NewEventService(repo, bc, callback.NewRegistry(), log)
+	svc := service.NewEventService(repo, bc, log)
+	txCheckSvc := service.NewTxCheckService(repo, nil, callback.NewRegistry(), svc.EventCallbacks, log, 10)
+	svc.SetTxCheckService(txCheckSvc)
 	retryCfg := pkg.RetryConfig{MaxAttempts: 2, BaseDelay: time.Millisecond, MaxDelay: 10 * time.Millisecond}
 	reg := prometheus.NewRegistry()
 	metrics := pkg.NewMetrics(reg)
@@ -61,8 +63,8 @@ func TestHandler_Handle_ValidEvent_ReturnsTrue(t *testing.T) {
 	if job == nil {
 		t.Fatal("job not persisted")
 	}
-	if job.Status != domain.JobStatusSuccess {
-		t.Errorf("job status = %q, want success", job.Status)
+	if job.Status != domain.JobStatusPending {
+		t.Errorf("job status = %q, want pending (confirmation is background)", job.Status)
 	}
 }
 

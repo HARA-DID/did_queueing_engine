@@ -111,7 +111,20 @@ func main() {
 			}
 
 			blockchainSvc := sdk.NewCompositeAdapter(didAdapter, aaAdapter, vcAdapter, aliasAdapter)
-			eventSvc := service.NewEventService(jobRepo, blockchainSvc, callbackRegistry, log)
+
+			// Initialize EventService first to populate its callback map
+			eventSvc := service.NewEventService(jobRepo, blockchainSvc, log)
+
+			// Initialize and start background transaction confirmation service
+			txCheckSvc := service.NewTxCheckService(jobRepo, provider.Chain, callbackRegistry, eventSvc.EventCallbacks, log, cfg.Blockchain.TxCheckChannelBuffer)
+			g.Go(func() error {
+				txCheckSvc.Start(gCtx)
+				return nil
+			})
+
+			// Link them
+			eventSvc.SetTxCheckService(txCheckSvc)
+
 			handler := worker.NewHandler(eventSvc, retryCfg, metrics, log)
 
 			workerCfg := cfg.Worker

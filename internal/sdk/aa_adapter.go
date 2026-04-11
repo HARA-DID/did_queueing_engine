@@ -2,8 +2,10 @@ package sdk
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"math/big"
+	"strings"
 
 	aapkg "github.com/HARA-DID/account-abstraction-sdk/pkg/entrypoint"
 	"github.com/HARA-DID/account-abstraction-sdk/pkg/gasmanager"
@@ -107,7 +109,19 @@ func (a *AAAdapter) HandleOps(ctx context.Context, p domain.HandleOpsPayload) (*
 }
 
 func (a *AAAdapter) DeployWallet(ctx context.Context, p domain.DeployWalletPayload) (*domain.BlockchainResult, error) {
-	txHashes, err := a.walletFactory.DeployWallet(ctx, a.provider.Wallet, walletfactory.DeployWalletParams{}, p.MultipleRPCCalls)
+	saltBytes, err := hex.DecodeString(strings.TrimPrefix(p.Salt, "0x"))
+	if err != nil {
+		return nil, fmt.Errorf("invalid salt hex: %w", err)
+	}
+	var salt [32]byte
+	copy(salt[:], saltBytes)
+
+	params := walletfactory.DeployWalletParams{
+		Owner: harautils.HexToAddress(p.Owner),
+		Salt:  salt,
+	}
+
+	txHashes, err := a.walletFactory.DeployWallet(ctx, a.provider.Wallet, params, p.MultipleRPCCalls)
 	if err != nil {
 		return nil, fmt.Errorf("walletFactory.DeployWallet: %w", err)
 	}

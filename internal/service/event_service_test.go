@@ -39,7 +39,9 @@ func makeEvent(t *testing.T, id string, evType domain.EventType, payload interfa
 func TestEventService_Process_CreateDID_Success(t *testing.T) {
 	repo := mocks.NewMockJobRepository()
 	bc := &mocks.MockBlockchainService{}
-	svc := service.NewEventService(repo, bc, callback.NewRegistry(), newLogger())
+	svc := service.NewEventService(repo, bc, newLogger())
+	txCheckSvc := service.NewTxCheckService(repo, nil, callback.NewRegistry(), svc.EventCallbacks, newLogger(), 10)
+	svc.SetTxCheckService(txCheckSvc)
 
 	event := makeEvent(t, "evt-001", domain.EventTypeCreateDID, domain.CreateDIDPayload{
 		DID: "did:hara:alice",
@@ -56,8 +58,8 @@ func TestEventService_Process_CreateDID_Success(t *testing.T) {
 	if job == nil {
 		t.Fatal("job not persisted")
 	}
-	if job.Status != domain.JobStatusSuccess {
-		t.Errorf("job status = %q, want success", job.Status)
+	if job.Status != domain.JobStatusPending {
+		t.Errorf("job status = %q, want pending (confirmation is background)", job.Status)
 	}
 	if len(job.TxHashes) == 0 {
 		t.Error("expected at least one tx hash")
@@ -67,7 +69,9 @@ func TestEventService_Process_CreateDID_Success(t *testing.T) {
 func TestEventService_Process_Idempotency_AlreadySuccess(t *testing.T) {
 	repo := mocks.NewMockJobRepository()
 	bc := &mocks.MockBlockchainService{}
-	svc := service.NewEventService(repo, bc, callback.NewRegistry(), newLogger())
+	svc := service.NewEventService(repo, bc, newLogger())
+	txCheckSvc := service.NewTxCheckService(repo, nil, callback.NewRegistry(), svc.EventCallbacks, newLogger(), 10)
+	svc.SetTxCheckService(txCheckSvc)
 
 	event := makeEvent(t, "evt-dup", domain.EventTypeAddKey, domain.AddKeyPayload{
 		DIDIndex: big.NewInt(42), KeyType: 0, PublicKey: "abc123", Purpose: 0,
@@ -97,7 +101,9 @@ func TestEventService_Process_BlockchainError(t *testing.T) {
 			return nil, errors.New("rpc timeout")
 		},
 	}
-	svc := service.NewEventService(repo, bc, callback.NewRegistry(), newLogger())
+	svc := service.NewEventService(repo, bc, newLogger())
+	txCheckSvc := service.NewTxCheckService(repo, nil, callback.NewRegistry(), svc.EventCallbacks, newLogger(), 10)
+	svc.SetTxCheckService(txCheckSvc)
 
 	event := makeEvent(t, "evt-bc-err", domain.EventTypeAddClaim, domain.AddClaimPayload{
 		DIDIndex: big.NewInt(7), Topic: 1, IssuerAddress: "0xDeAdBeEf00000000000000000000000000000001",
@@ -156,7 +162,9 @@ func TestEventService_Process_AllEventTypes(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			repo := mocks.NewMockJobRepository()
 			bc := &mocks.MockBlockchainService{}
-			svc := service.NewEventService(repo, bc, callback.NewRegistry(), newLogger())
+			svc := service.NewEventService(repo, bc, newLogger())
+			txCheckSvc := service.NewTxCheckService(repo, nil, callback.NewRegistry(), svc.EventCallbacks, newLogger(), 10)
+			svc.SetTxCheckService(txCheckSvc)
 
 			event := makeEvent(t, fmt.Sprintf("evt-%d", i), tc.evType, tc.payload)
 			if err := svc.Process(context.Background(), event); err != nil {
@@ -174,7 +182,9 @@ func TestEventService_Process_CallbackInvocation(t *testing.T) {
 	bc := &mocks.MockBlockchainService{}
 	registry := callback.NewRegistry()
 
-	svc := service.NewEventService(repo, bc, registry, newLogger())
+	svc := service.NewEventService(repo, bc, newLogger())
+	txCheckSvc := service.NewTxCheckService(repo, nil, registry, svc.EventCallbacks, newLogger(), 10)
+	svc.SetTxCheckService(txCheckSvc)
 
 	event := makeEvent(t, "evt-cb", domain.EventTypeCreateDID, domain.CreateDIDPayload{DID: "did:hara:cb"})
 

@@ -20,28 +20,30 @@ type eventHandler func(context.Context, json.RawMessage) (*domain.BlockchainResu
 type EventService struct {
 	jobRepo        repository.JobRepository
 	blockchain     BlockchainService
-	callbacks      *callback.Registry
 	log            *logrus.Logger
+	txCheckSvc     *TxCheckService
 	handlers       map[domain.EventType]eventHandler
-	eventCallbacks map[domain.EventType]callback.Func
+	EventCallbacks map[domain.EventType]callback.Func
 }
 
 func NewEventService(
 	jobRepo repository.JobRepository,
-	blockchain BlockchainService,
-	callbacks *callback.Registry,
+	blockchainSvc BlockchainService,
 	log *logrus.Logger,
 ) *EventService {
 	s := &EventService{
 		jobRepo:        jobRepo,
-		blockchain:     blockchain,
-		callbacks:      callbacks,
+		blockchain:     blockchainSvc,
 		log:            log,
 		handlers:       make(map[domain.EventType]eventHandler),
-		eventCallbacks: make(map[domain.EventType]callback.Func),
+		EventCallbacks: make(map[domain.EventType]callback.Func),
 	}
 	s.initHandlers()
 	return s
+}
+
+func (s *EventService) SetTxCheckService(svc *TxCheckService) {
+	s.txCheckSvc = svc
 }
 
 func (s *EventService) Process(ctx context.Context, event *domain.Event) error {
@@ -83,7 +85,9 @@ func (s *EventService) Process(ctx context.Context, event *domain.Event) error {
 
 	if bcErr != nil {
 		errMsg := bcErr.Error()
-		_ = s.jobRepo.UpdateStatus(ctx, job.ID, domain.JobStatusFailed, nil, errMsg)
+		if err := s.jobRepo.UpdateStatus(ctx, job.ID, domain.JobStatusFailed, nil, errMsg); err != nil {
+			log.WithError(err).Error("failed to update job status to failed")
+		}
 		log.WithError(bcErr).Error("blockchain operation failed")
 
 		s.triggerCallback(ctx, event, callback.Result{
@@ -97,19 +101,15 @@ func (s *EventService) Process(ctx context.Context, event *domain.Event) error {
 		return &domain.ErrBlockchain{Op: string(event.Type), Err: bcErr}
 	}
 
-	if err := s.jobRepo.UpdateStatus(ctx, job.ID, domain.JobStatusSuccess, result.TxHashes, ""); err != nil {
-		log.WithError(err).Error("failed to update job status to success")
+	// For successful dispatch, delegate confirmations and final updates to TxCheckService
+	if len(result.TxHashes) > 0 {
+		s.txCheckSvc.Enqueue(TxCheckTask{
+			Event: event,
+			Job:   job,
+			Hash:  result.TxHashes[0],
+		})
+		log.WithField("tx_hash", result.TxHashes[0]).Info("event dispatched; confirmation queued in background")
 	}
-
-	log.WithField("tx_hashes", result.TxHashes).Info("event processed successfully")
-
-	s.triggerCallback(ctx, event, callback.Result{
-		EventID:   event.ID,
-		JobID:     job.ID,
-		EventType: string(event.Type),
-		Success:   true,
-		TxHashes:  result.TxHashes,
-	})
 
 	return nil
 }
@@ -185,7 +185,7 @@ func sRegister[P any](
 		}
 		return fn(ctx, p)
 	}
-	s.eventCallbacks[eventType] = cb
+	s.EventCallbacks[eventType] = cb
 }
 
 func (s *EventService) register(eventType domain.EventType, fn any, cb callback.Func) {
@@ -284,7 +284,7 @@ func IsAlreadyProcessed(err error) bool {
 }
 
 func (s *EventService) triggerCallback(ctx context.Context, event *domain.Event, result callback.Result) {
-	cb, ok := s.eventCallbacks[event.Type]
+	cb, ok := s.EventCallbacks[event.Type]
 	if !ok {
 		return
 	}

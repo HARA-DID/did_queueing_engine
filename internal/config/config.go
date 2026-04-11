@@ -46,6 +46,7 @@ type BlockchainConfig struct {
 	VCIdentityNFTHNS    string
 	AliasFactoryHNS     string
 	AliasStorageHNS     string
+	TxCheckChannelBuffer int
 }
 
 type WorkerConfig struct {
@@ -92,6 +93,7 @@ func Load() (*Config, error) {
 			VCIdentityNFTHNS:    getEnvOrDefault("DID_VC_IDENTITY_NFT_HNS", ""),
 			AliasFactoryHNS:     getEnvOrDefault("DID_ALIAS_FACTORY_HNS", ""),
 			AliasStorageHNS:     getEnvOrDefault("DID_ALIAS_STORAGE_HNS", ""),
+			TxCheckChannelBuffer: getEnvInt("TX_CHECK_CHANNEL_BUFFER", 100),
 		},
 		Worker: WorkerConfig{
 			ConsumerName:    getEnvOrDefault("CONSUMER_NAME", defaultConsumerName()),
